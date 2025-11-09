@@ -1,0 +1,150 @@
+version: "3.9"
+
+services:
+  db:
+    image: ghcr.io/maxxired/pec-db:0.1.0
+    container_name: pec-db
+    restart: unless-stopped
+    env_file: PEC-Back/.env
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      - "5435:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL","pg_isready -q -h 127.0.0.1 -p 5432 -U ${DB_USER} -d ${DB_NAME} || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [backend]
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    restart: always
+    # Si usas RABBIT_USER/PASS desde la .env raíz, déjalo así.
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBIT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBIT_PASS}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD-SHELL","rabbitmq-diagnostics -q ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [backend]
+
+  cache:
+    image: redis:7-alpine
+    container_name: cache_pec
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD-SHELL","redis-cli ping | grep PONG || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [backend]
+
+  frontend:
+    image: ghcr.io/maxxired/pec-frontend:0.1.0
+    container_name: pec-frontend
+    restart: unless-stopped
+    depends_on:
+      # Si tu front requiere la API para estar “OK”, deja también backend aquí:
+      # backend: { condition: service_healthy }
+      apilia: { condition: service_healthy }
+    ports:
+      - "8080:80"
+    healthcheck:
+      test: ["CMD","wget","-qO-","http://localhost/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [backend]
+
+  backend:
+    image: ghcr.io/maxxired/pec-backend:0.1.0
+    container_name: api-pec
+    restart: unless-stopped
+    env_file: PEC-Back/.env
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ENVIRONMENT}
+      ASPNETCORE_URLS: http://+:7001
+      ConnectionStrings__PeciConnection: "Host=db;Port=${PORT};Database=${DB_NAME};Username=${DB_USER};Password=${DB_PASSWORD}"
+      ConnectionStrings__Redis: "cache:6379"
+    ports:
+      - "7001:7001"
+    depends_on:
+      db: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD-SHELL","curl -fsS http://localhost:7001 || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks: [backend]
+
+  apilia:
+    image: ghcr.io/maxxired/pec-apilia:0.1.0
+    container_name: api_lia
+    restart: always
+    env_file: PECI-WebService/app/.env
+    depends_on:
+      rabbitmq: { condition: service_healthy }
+      db: { condition: service_healthy }
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD","curl","-f","http://localhost:8000/swagger"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks: [backend]
+
+  scheduler:
+    image: ghcr.io/maxxired/pec-scheduler:0.1.0
+    container_name: scheduler_lia
+    restart: always
+    env_file: PECI-WebService/scheduler/.env
+    depends_on:
+      rabbitmq: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD-SHELL","pgrep -f main.py"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks: [backend]
+
+  worker_sync:
+    image: ghcr.io/maxxired/pec-worker-sync:0.1.0
+    container_name: worker_sync_lia
+    restart: always
+    env_file: PECI-WebService/workers/.env
+    command: ["python","-m","knowledge_sync"]
+    depends_on:
+      rabbitmq: { condition: service_healthy }
+      db: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD-SHELL","pgrep -f knowledge_sync"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    volumes:
+      - ./data/pdf:/data/pdf
+    networks: [backend]
+
+networks:
+  backend:
+    driver: bridge
+
+volumes:
+  db_data: {}
+  redis-data: {}
