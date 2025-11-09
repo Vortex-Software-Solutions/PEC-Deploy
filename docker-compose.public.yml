@@ -25,7 +25,7 @@ services:
     image: rabbitmq:3-management
     container_name: rabbitmq
     restart: always
-    # Si usas RABBIT_USER/PASS desde la .env raíz, déjalo así.
+    # Si usas RABBIT_USER/PASS desde la .env.example raíz, déjalo así.
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBIT_USER}
       RABBITMQ_DEFAULT_PASS: ${RABBIT_PASS}
@@ -96,7 +96,7 @@ services:
     image: ghcr.io/maxxired/pec-apilia:0.1.0
     container_name: api_lia
     restart: always
-    env_file: PECI-WebService/app/.env
+    env_file: PECI-WebService/app/.env.example
     depends_on:
       rabbitmq: { condition: service_healthy }
       db: { condition: service_healthy }
@@ -113,7 +113,7 @@ services:
     image: ghcr.io/maxxired/pec-scheduler:0.1.0
     container_name: scheduler_lia
     restart: always
-    env_file: PECI-WebService/scheduler/.env
+    env_file: PECI-WebService/scheduler/.env.example
     depends_on:
       rabbitmq: { condition: service_healthy }
     healthcheck:
@@ -127,7 +127,7 @@ services:
     image: ghcr.io/maxxired/pec-worker-sync:0.1.0
     container_name: worker_sync_lia
     restart: always
-    env_file: PECI-WebService/workers/.env
+    env_file: PECI-WebService/workers/.env.example
     command: ["python","-m","knowledge_sync"]
     depends_on:
       rabbitmq: { condition: service_healthy }

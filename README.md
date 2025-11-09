@@ -16,11 +16,11 @@ cd pec
 Cada servicio tiene su propio archivo `.env` dentro de su carpeta. Copia los archivos de ejemplo y completa tus valores:
 
 ```bash
-cp PEC-Back/.env.example PEC-Back/.env
-cp PECI-WebService/app/.env.example PECI-WebService/app/.env
-cp PECI-WebService/scheduler/.env.example PECI-WebService/scheduler/.env
-cp PECI-WebService/workers/.env.example PECI-WebService/workers/.env
-cp .env.example .env   # si existe en la raíz
+cp PEC-Back/.env.example.example PEC-Back/.env.example
+cp PECI-WebService/app/.env.example.example PECI-WebService/app/.env.example
+cp PECI-WebService/scheduler/.env.example.example PECI-WebService/scheduler/.env.example
+cp PECI-WebService/workers/.env.example.example PECI-WebService/workers/.env.example
+cp .env.example.example .env.example   # si existe en la raíz
 ```
 
 > 🔒 No compartas los archivos `.env` reales en el repositorio. Solo incluye los `.env.example`.
